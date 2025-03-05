@@ -119,9 +119,7 @@ app = dash.Dash(
         "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Raleway:wght@300;400;500&display=swap"
     ]
 )
-app.config.suppress_callback_exceptions = True
-app.scripts.config.serve_locally = True
-
+server = app.server
 # ---------------------- LAYOUT COMPONENTS ----------------------
 # Current time and user - UPDATED
 current_time = "from 2024-01-01 to 2025-01-01"
