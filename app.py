@@ -2081,4 +2081,8 @@ def update_view_on_filter_change(active_filter, active_view):
 
 
 if __name__ == '__main__':
+<<<<<<< HEAD
     app.run_server(debug=False)
+=======
+    app.run_server(debug=True)
+>>>>>>> f65a5e4702dd662a2a010d746c7bd50ccc1139b6
