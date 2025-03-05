@@ -124,7 +124,7 @@ server = app.server
 # Current time and user - UPDATED
 current_time = "from 2024-01-01 to 2025-01-01"
 current_user1 = "Jessica Julian"
-current_user2 = "Twinkie"
+current_user2 = "Twinkie Belario"
 
 avatar_section = html.Div([
     # 两个头像并排排列
