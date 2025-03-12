@@ -5,31 +5,31 @@ import plotly.graph_objs as go
 import plotly.express as px
 import numpy as np
 import pandas as pd
-import calendar
 from statsmodels.tsa.arima.model import ARIMA
 
 np.random.seed(42)
-months = list(calendar.month_abbr)[1:]
+years = list(range(2014, 2026))  # 2014 to 2025
 coffee_types = ['Espresso', 'Latte', 'Cappuccino']
 
 base_pattern = np.sin(np.linspace(0, 2 * np.pi, 12)) * 0.3 + 0.7
-espresso_sales = (np.random.normal(1000, 100, 12) * base_pattern).astype(int)
-latte_sales = (np.random.normal(1500, 150, 12) * base_pattern).astype(int)
-cappuccino_sales = (np.random.normal(1200, 120, 12) * (base_pattern[::-1])).astype(int)
+growth_trend = np.linspace(0.8, 1.2, 12)
 
-espresso_prices = np.round(np.random.normal(3.5, 0.2, 12) * (base_pattern * 0.1 + 0.95), 2)
-latte_prices = np.round(np.random.normal(4.5, 0.3, 12) * (base_pattern * 0.1 + 0.95), 2)
-cappuccino_prices = np.round(np.random.normal(4.2, 0.25, 12) * (base_pattern * 0.1 + 0.95), 2)
+espresso_sales = (np.random.normal(5000, 500, 12) * base_pattern * growth_trend).astype(int)
+latte_sales = (np.random.normal(5500, 450, 12) * base_pattern * growth_trend).astype(int)
+cappuccino_sales = (np.random.normal(4500, 400, 12) * (base_pattern[::-1] * growth_trend)).astype(int)
+
+espresso_prices = np.round(np.random.normal(80.5, 2.5, 12) * (growth_trend * 0.2 + 0.9), 2)
+latte_prices = np.round(np.random.normal(60.5, 2.0, 12) * (growth_trend * 0.2 + 0.9), 2)
+cappuccino_prices = np.round(np.random.normal(75.2, 2.2, 12) * (growth_trend * 0.2 + 0.9), 2)
 
 sales_data = pd.DataFrame({
-    'Month': months,
+    'Year': years,
     'Espresso': espresso_sales,
     'Latte': latte_sales,
     'Cappuccino': cappuccino_sales,
     'EspressoPrice': espresso_prices,
     'LattePrice': latte_prices,
-    'CappuccinoPrice': cappuccino_prices,
-    'MonthNum': range(1, 13)  # For sorting
+    'CappuccinoPrice': cappuccino_prices
 })
 
 sales_data['Total'] = sales_data['Espresso'] + sales_data['Latte'] + sales_data['Cappuccino']
@@ -42,15 +42,15 @@ total_by_coffee = {
     'Sales': [sales_data['Espresso'].sum(), sales_data['Latte'].sum(), sales_data['Cappuccino'].sum()]
 }
 
-top_month_idx = sales_data['Total'].argmax()
-top_month = sales_data.iloc[top_month_idx]['Month']
+top_year_idx = sales_data['Total'].argmax()
+top_year = sales_data.iloc[top_year_idx]['Year']
 top_product = coffee_types[np.argmax([sales_data['Espresso'].sum(),
-                                      sales_data['Latte'].sum(),
-                                      sales_data['Cappuccino'].sum()])]
+                                     sales_data['Latte'].sum(),
+                                     sales_data['Cappuccino'].sum()])]
 
 sales_long = pd.melt(
     sales_data,
-    id_vars=['Month', 'MonthNum'],
+    id_vars=['Year'],
     value_vars=coffee_types,
     var_name='Coffee Type',
     value_name='Sales'
@@ -58,23 +58,21 @@ sales_long = pd.melt(
 
 price_long = pd.melt(
     sales_data,
-    id_vars=['Month', 'MonthNum'],
+    id_vars=['Year'],
     value_vars=['EspressoPrice', 'LattePrice', 'CappuccinoPrice'],
     var_name='Coffee Type',
     value_name='Price'
 )
 price_long['Coffee Type'] = price_long['Coffee Type'].str.replace('Price', '')
 
-future_months = ['Jan', 'Feb', 'Mar', 'Apr']
-prediction_months = months + future_months
-
+future_years = [2026, 2027, 2028, 2029]
+prediction_years = years + future_years
 
 def predict_future_values(data, periods=4):
     model = ARIMA(data, order=(1, 0, 0))
     model_fit = model.fit()
     forecast = model_fit.forecast(steps=periods)
     return list(forecast)
-
 
 espresso_predictions = list(espresso_sales) + predict_future_values(espresso_sales)
 latte_predictions = list(latte_sales) + predict_future_values(latte_sales)
@@ -109,8 +107,6 @@ card_style = {
     'marginBottom': '15px'
 }
 
-# ---------------------- APP CREATION ----------------------
-# Initialize the app
 app = dash.Dash(
     __name__,
     external_stylesheets=[
@@ -122,7 +118,7 @@ app = dash.Dash(
 server = app.server
 # ---------------------- LAYOUT COMPONENTS ----------------------
 # Current time and user - UPDATED
-current_time = "from 2024-01-01 to 2025-01-01"
+current_time = "from 2014 to 2025"
 current_user1 = "Jessica Julian"
 current_user2 = "Twinkie Belario"
 
@@ -349,7 +345,7 @@ kpi_cards = dbc.Row([
         ], style=card_style)
     ], width=3),
 
-    # Average Monthly Sales
+    # Average Yearly Sales
     dbc.Col([
         dbc.Card([
             dbc.CardBody([
@@ -360,10 +356,10 @@ kpi_cards = dbc.Row([
                         'marginRight': '8px'
                     }),
                     html.Div([
-                        html.H6("Monthly Average", style={'fontSize': '10px', 'margin': '0', 'color': '#666'}),
+                        html.H6("Yearly Average", style={'fontSize': '10px', 'margin': '0', 'color': '#666'}),
                         html.H4(
                             f"{int(sales_data['Total'].mean()):,}",
-                            id="monthly-avg-value",
+                            id="yearly-avg-value",
                             style={'fontWeight': 'bold', 'color': colors['text'], 'margin': '0', 'fontSize': '16px'}
                         )
                     ])
@@ -377,7 +373,7 @@ kpi_cards = dbc.Row([
         dbc.Card([
             dbc.CardBody([
                 html.Div([
-                    html.I(className="fas fa-dollar-sign", style={
+                    html.I(className="fa-solid fa-peso-sign", style={
                         'fontSize': '18px',
                         'color': colors['accent1'],
                         'marginRight': '8px'
@@ -385,7 +381,7 @@ kpi_cards = dbc.Row([
                     html.Div([
                         html.H6("Total Revenue", style={'fontSize': '10px', 'margin': '0', 'color': '#666'}),
                         html.H4(
-                            f"${sales_data['Revenue'].sum():,.2f}",
+                            f"₱{sales_data['Revenue'].sum():,.2f}",
                             id="revenue-value",
                             style={'fontWeight': 'bold', 'color': colors['text'], 'margin': '0', 'fontSize': '16px'}
                         )
@@ -426,13 +422,13 @@ dashboard_view = dbc.Row([
         # Sales trend chart
         dbc.Card([
             dbc.CardBody([
-                html.H6("Annual Coffee Sales Trend",
+                html.H6("Coffee Sales Trend (2014-2025)",
                         style={'fontSize': '12px', 'margin': '0 0 5px 0', 'fontWeight': 'bold'}),
                 dcc.Graph(
                     id="sales-trend-chart",
                     figure=px.line(
                         sales_long,
-                        x='Month',
+                        x='Year',
                         y='Sales',
                         color='Coffee Type',
                         color_discrete_map=coffee_colors,
@@ -443,7 +439,7 @@ dashboard_view = dbc.Row([
                         font=dict(color=colors['text'], size=9),
                         margin=dict(l=5, r=5, t=5, b=5),
                         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=8)),
-                        xaxis=dict(tickmode='array', tickvals=months, tickfont=dict(size=8)),
+                        xaxis=dict(tickmode='array', tickvals=years, tickfont=dict(size=8)),
                         yaxis=dict(tickfont=dict(size=8)),
                         height=150,
                         hovermode="x unified"
@@ -473,7 +469,7 @@ dashboard_view = dbc.Row([
                         x=['7AM', '9AM', '11AM', '1PM', '3PM', '5PM', '7PM'],
                         y=['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
                         color_continuous_scale=[colors['card_bg'], colors['latte'], colors['cappuccino'],
-                                                colors['espresso']]
+                                               colors['espresso']]
                     ).update_layout(
                         plot_bgcolor=colors['card_bg'],
                         paper_bgcolor=colors['card_bg'],
@@ -540,18 +536,17 @@ dashboard_view = dbc.Row([
         # Bar chart - more compact
         dbc.Card([
             dbc.CardBody([
-                html.H6("Monthly Sales by Coffee Type",
+                html.H6("Yearly Sales by Coffee Type",
                         style={'fontSize': '12px', 'margin': '0 0 5px 0', 'fontWeight': 'bold'}),
                 dcc.Graph(
-                    id="monthly-bar-chart",
+                    id="yearly-bar-chart",
                     figure=px.bar(
                         sales_long,
-                        x='Month',
+                        x='Year',
                         y='Sales',
                         color='Coffee Type',
                         barmode='group',
                         color_discrete_map=coffee_colors,
-                        category_orders={"Month": months},
                     ).update_layout(
                         plot_bgcolor=colors['card_bg'],
                         paper_bgcolor=colors['card_bg'],
@@ -580,12 +575,12 @@ trends_view = dbc.Row([
         # Price trends chart
         dbc.Card([
             dbc.CardBody([
-                html.H6("Coffee Price Trends", style={'fontSize': '12px', 'margin': '0 0 5px 0', 'fontWeight': 'bold'}),
+                html.H6("Coffee Price Trends (2014-2025)", style={'fontSize': '12px', 'margin': '0 0 5px 0', 'fontWeight': 'bold'}),
                 dcc.Graph(
                     id="price-trend-chart",
                     figure=px.line(
                         price_long,
-                        x='Month',
+                        x='Year',
                         y='Price',
                         color='Coffee Type',
                         color_discrete_map=coffee_colors,
@@ -596,14 +591,14 @@ trends_view = dbc.Row([
                         font=dict(color=colors['text'], size=9),
                         margin=dict(l=5, r=5, t=5, b=5),
                         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=8)),
-                        xaxis=dict(tickmode='array', tickvals=months, tickfont=dict(size=8)),
-                        yaxis=dict(tickfont=dict(size=8), tickprefix='$'),
+                        xaxis=dict(tickmode='array', tickvals=years, tickfont=dict(size=8)),
+                        yaxis=dict(tickfont=dict(size=8), tickprefix='₱'),
                         height=150,
                         hovermode="x unified"
                     ).update_traces(
                         line=dict(width=2),
                         marker=dict(size=4),
-                        hovertemplate='$%{y:.2f}'
+                        hovertemplate='₱%{y:.2f}'
                     ),
                     config={'displayModeBar': False, 'responsive': True},
                     style={'height': '150px'}
@@ -622,13 +617,13 @@ trends_view = dbc.Row([
                         x=[3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8],
                         y=[1100, 1050, 1000, 970, 930, 880, 850],
                         color_discrete_sequence=[colors['espresso']],
-                        labels={"x": "Price ($)", "y": "Sales (cups)"}
+                        labels={"x": "Price (₱)", "y": "Sales (cups)"}
                     ).update_layout(
                         plot_bgcolor=colors['card_bg'],
                         paper_bgcolor=colors['card_bg'],
                         font=dict(color=colors['text'], size=9),
                         margin=dict(l=5, r=5, t=5, b=5),
-                        xaxis=dict(tickfont=dict(size=8), tickprefix='$'),
+                        xaxis=dict(tickfont=dict(size=8), tickprefix='₱'),
                         yaxis=dict(tickfont=dict(size=8)),
                         height=130,
                         showlegend=False
@@ -638,7 +633,7 @@ trends_view = dbc.Row([
                         x1=3.8, y1=850,
                         line=dict(color=colors['espresso'], width=2)
                     ).add_annotation(
-                        x=3.5, y=970,
+                        x=4.5, y=970,
                         text="Price Elasticity: -1.2",
                         showarrow=False,
                         font=dict(size=9)
@@ -652,27 +647,27 @@ trends_view = dbc.Row([
 
     # Right column
     dbc.Col([
-        # Seasonal pattern
+        # Trend pattern by period
         dbc.Card([
             dbc.CardBody([
-                html.H6("Seasonal Consumption Patterns",
+                html.H6("Sales Trend by Period",
                         style={'fontSize': '12px', 'margin': '0 0 5px 0', 'fontWeight': 'bold'}),
                 dcc.Graph(
                     id="seasonal-chart",
                     figure=px.bar(
                         pd.DataFrame({
-                            'Season': ['Winter', 'Spring', 'Summer', 'Fall'],
-                            'Espresso': [1050, 980, 920, 1020],
-                            'Latte': [1550, 1480, 1400, 1500],
-                            'Cappuccino': [1250, 1200, 1150, 1180]
+                            'Period': ['2014-2016', '2017-2019', '2020-2022', '2023-2025'],
+                            'Espresso': [3050, 3280, 3520, 3750],
+                            'Latte': [4550, 4780, 5100, 5400],
+                            'Cappuccino': [3650, 3800, 3950, 4180]
                         }).melt(
-                            id_vars=['Season'],
+                            id_vars=['Period'],
                             value_vars=['Espresso', 'Latte', 'Cappuccino'],
                             var_name='Coffee Type',
-                            value_name='Consumption'
+                            value_name='Sales'
                         ),
-                        x='Season',
-                        y='Consumption',
+                        x='Period',
+                        y='Sales',
                         color='Coffee Type',
                         barmode='group',
                         color_discrete_map=coffee_colors
@@ -710,7 +705,7 @@ trends_view = dbc.Row([
                         names='Age Group',
                         hole=0.4,
                         color_discrete_sequence=[colors['espresso'], colors['latte'], colors['cappuccino'],
-                                                 '#A67B5B', '#8B7355']
+                                               '#A67B5B', '#8B7355']
                     ).update_layout(
                         plot_bgcolor=colors['card_bg'],
                         paper_bgcolor=colors['card_bg'],
@@ -737,48 +732,48 @@ predictions_view = dbc.Row([
         # Sales predictions chart
         dbc.Card([
             dbc.CardBody([
-                html.H6("Sales Forecast (Next 4 Months)",
+                html.H6("Sales Forecast (2026-2029)",
                         style={'fontSize': '12px', 'margin': '0 0 5px 0', 'fontWeight': 'bold'}),
                 dcc.Graph(
                     id="predictions-chart",
                     figure=go.Figure()
                     .add_trace(go.Scatter(
-                        x=prediction_months[:12],
+                        x=prediction_years[:12],
                         y=espresso_predictions[:12],
                         mode='lines+markers',
                         name='Espresso',
                         line=dict(color=colors['espresso'], width=2)
                     ))
                     .add_trace(go.Scatter(
-                        x=prediction_months[11:],
+                        x=prediction_years[11:],
                         y=espresso_predictions[11:],
                         mode='lines+markers',
                         name='Espresso Forecast',
                         line=dict(color=colors['espresso'], width=2, dash='dot')
                     ))
                     .add_trace(go.Scatter(
-                        x=prediction_months[:12],
+                        x=prediction_years[:12],
                         y=latte_predictions[:12],
                         mode='lines+markers',
                         name='Latte',
                         line=dict(color=colors['latte'], width=2)
                     ))
                     .add_trace(go.Scatter(
-                        x=prediction_months[11:],
+                        x=prediction_years[11:],
                         y=latte_predictions[11:],
                         mode='lines+markers',
                         name='Latte Forecast',
                         line=dict(color=colors['latte'], width=2, dash='dot')
                     ))
                     .add_trace(go.Scatter(
-                        x=prediction_months[:12],
+                        x=prediction_years[:12],
                         y=cappuccino_predictions[:12],
                         mode='lines+markers',
                         name='Cappuccino',
                         line=dict(color=colors['cappuccino'], width=2)
                     ))
                     .add_trace(go.Scatter(
-                        x=prediction_months[11:],
+                        x=prediction_years[11:],
                         y=cappuccino_predictions[11:],
                         mode='lines+markers',
                         name='Cappuccino Forecast',
@@ -796,9 +791,9 @@ predictions_view = dbc.Row([
                         hovermode="x unified",
                         shapes=[{
                             'type': 'line',
-                            'x0': months[-1],
+                            'x0': years[-1],
                             'y0': 0,
-                            'x1': months[-1],
+                            'x1': years[-1],
                             'y1': 2000,
                             'line': {
                                 'color': 'gray',
@@ -807,7 +802,7 @@ predictions_view = dbc.Row([
                             }
                         }],
                         annotations=[{
-                            'x': months[-1],
+                            'x': years[-1],
                             'y': 2000,
                             'text': 'Forecast Starts',
                             'showarrow': False,
@@ -831,16 +826,16 @@ predictions_view = dbc.Row([
                     dbc.Row([
                         dbc.Col([
                             html.Div([
-                                html.H5("$147,862", style={'fontSize': '14px', 'fontWeight': 'bold', 'margin': '0',
+                                html.H5("₱147,862,000", style={'fontSize': '14px', 'fontWeight': 'bold', 'margin': '0',
                                                            'color': colors['text']}),
-                                html.P("Current Annual", style={'fontSize': '9px', 'margin': '0', 'color': '#777'})
+                                html.P("Current Total (2014-2025)", style={'fontSize': '9px', 'margin': '0', 'color': '#777'})
                             ], style={'textAlign': 'center'})
                         ], width=4),
                         dbc.Col([
                             html.Div([
-                                html.H5("$156,435", style={'fontSize': '14px', 'fontWeight': 'bold', 'margin': '0',
+                                html.H5("₱156,435,000", style={'fontSize': '14px', 'fontWeight': 'bold', 'margin': '0',
                                                            'color': colors['success']}),
-                                html.P("Forecasted Annual", style={'fontSize': '9px', 'margin': '0', 'color': '#777'})
+                                html.P("Forecasted Total (2026-2029)", style={'fontSize': '9px', 'margin': '0', 'color': '#777'})
                             ], style={'textAlign': 'center'})
                         ], width=4),
                         dbc.Col([
@@ -896,19 +891,19 @@ predictions_view = dbc.Row([
                 html.Div([
                     html.Div([
                         html.I(className="fas fa-lightbulb mr-2", style={'color': colors['warning']}),
-                        html.Span("Increase Latte marketing in summer to boost sales", style={'fontSize': '11px'})
+                        html.Span("Increase marketing focus on premium Latte variants", style={'fontSize': '11px'})
                     ], className="mb-2", style={'display': 'flex', 'alignItems': 'center', 'gap': '8px'}),
                     html.Div([
                         html.I(className="fas fa-chart-line mr-2", style={'color': colors['info']}),
-                        html.Span("Espresso shows strongest growth potential", style={'fontSize': '11px'})
+                        html.Span("Espresso shows strongest long-term growth potential", style={'fontSize': '11px'})
                     ], className="mb-2", style={'display': 'flex', 'alignItems': 'center', 'gap': '8px'}),
                     html.Div([
                         html.I(className="fas fa-tag mr-2", style={'color': colors['success']}),
-                        html.Span("Consider 5% price increase for Cappuccino", style={'fontSize': '11px'})
+                        html.Span("Consider 5% annual price increases for Cappuccino", style={'fontSize': '11px'})
                     ], className="mb-2", style={'display': 'flex', 'alignItems': 'center', 'gap': '8px'}),
                     html.Div([
                         html.I(className="fas fa-clock mr-2", style={'color': colors['accent2']}),
-                        html.Span("Extend morning hours to capture peak demand", style={'fontSize': '11px'})
+                        html.Span("Expand store locations based on decade growth pattern", style={'fontSize': '11px'})
                     ], style={'display': 'flex', 'alignItems': 'center', 'gap': '8px'}),
                 ], style={'marginBottom': '10px'}),
                 dbc.Button("Generate New Insights",
@@ -927,7 +922,7 @@ predictions_view = dbc.Row([
         # Price optimization
         dbc.Card([
             dbc.CardBody([
-                html.H6("Price Optimization", style={'fontSize': '12px', 'margin': '0 0 8px 0', 'fontWeight': 'bold'}),
+                html.H6("Long-term Price Optimization", style={'fontSize': '12px', 'margin': '0 0 8px 0', 'fontWeight': 'bold'}),
                 html.Div([
                     html.Table([
                         html.Thead([
@@ -935,10 +930,10 @@ predictions_view = dbc.Row([
                                 html.Th("Product",
                                         style={'fontSize': '10px', 'textAlign': 'left', 'paddingRight': '8px',
                                                'paddingBottom': '6px'}),
-                                html.Th("Current",
+                                html.Th("2025 Price",
                                         style={'fontSize': '10px', 'textAlign': 'right', 'paddingRight': '8px',
                                                'paddingBottom': '6px'}),
-                                html.Th("Optimal",
+                                html.Th("2030 Target",
                                         style={'fontSize': '10px', 'textAlign': 'right', 'paddingRight': '8px',
                                                'paddingBottom': '6px'}),
                                 html.Th("∆ Revenue",
@@ -953,11 +948,11 @@ predictions_view = dbc.Row([
                                                     'marginRight': '5px'}),
                                     "Espresso"
                                 ], style={'fontSize': '10px', 'whiteSpace': 'nowrap', 'padding': '8px 0'}),
-                                html.Td("$3.50", style={'fontSize': '10px', 'textAlign': 'right', 'padding': '8px 0'}),
-                                html.Td("$3.75",
+                                html.Td("₱3.75", style={'fontSize': '10px', 'textAlign': 'right', 'padding': '8px 0'}),
+                                html.Td("₱4.25",
                                         style={'fontSize': '10px', 'textAlign': 'right', 'color': colors['success'],
                                                'padding': '8px 0'}),
-                                html.Td("+4.2%",
+                                html.Td("+14.2%",
                                         style={'fontSize': '10px', 'textAlign': 'right', 'color': colors['success'],
                                                'padding': '8px 0'})
                             ], style={'borderBottom': '1px solid #f5f5f5'}),
@@ -968,9 +963,9 @@ predictions_view = dbc.Row([
                                                     'marginRight': '5px'}),
                                     "Latte"
                                 ], style={'fontSize': '10px', 'whiteSpace': 'nowrap', 'padding': '8px 0'}),
-                                html.Td("$4.50", style={'fontSize': '10px', 'textAlign': 'right', 'padding': '8px 0'}),
-                                html.Td("$4.50", style={'fontSize': '10px', 'textAlign': 'right', 'padding': '8px 0'}),
-                                html.Td("0%", style={'fontSize': '10px', 'textAlign': 'right', 'padding': '8px 0'})
+                                html.Td("₱4.80", style={'fontSize': '10px', 'textAlign': 'right', 'padding': '8px 0'}),
+                                html.Td("₱5.50", style={'fontSize': '10px', 'textAlign': 'right', 'color': colors['success'], 'padding': '8px 0'}),
+                                html.Td("+18.5%", style={'fontSize': '10px', 'textAlign': 'right', 'color': colors['success'], 'padding': '8px 0'})
                             ], style={'borderBottom': '1px solid #f5f5f5'}),
                             html.Tr([
                                 html.Td([
@@ -979,22 +974,22 @@ predictions_view = dbc.Row([
                                                     'marginRight': '5px'}),
                                     "Cappuccino"
                                 ], style={'fontSize': '10px', 'whiteSpace': 'nowrap', 'padding': '8px 0'}),
-                                html.Td("$4.20", style={'fontSize': '10px', 'textAlign': 'right', 'padding': '8px 0'}),
-                                html.Td("$4.40",
+                                html.Td("₱4.50", style={'fontSize': '10px', 'textAlign': 'right', 'padding': '8px 0'}),
+                                html.Td("₱5.10",
                                         style={'fontSize': '10px', 'textAlign': 'right', 'color': colors['success'],
                                                'padding': '8px 0'}),
-                                html.Td("+3.5%",
+                                html.Td("+16.8%",
                                         style={'fontSize': '10px', 'textAlign': 'right', 'color': colors['success'],
                                                'padding': '8px 0'})
                             ], style={'borderBottom': '1px solid #f5f5f5'})
                         ])
                     ], style={'width': '100%'}),
 
-                    # 添加更多空间和额外内容
+                    # Add more space and extra content
                     html.Div([
                         html.Hr(style={'margin': '15px 0 10px 0', 'opacity': '0.3'}),
                         html.Div([
-                            html.Small("Suggested price changes for Q2 2025",
+                            html.Small("Suggested price changes for 2026-2030 period",
                                        style={'fontSize': '9px', 'fontStyle': 'italic', 'color': '#777',
                                               'marginBottom': '5px'}),
                         ], style={'textAlign': 'center'}),
@@ -1002,18 +997,19 @@ predictions_view = dbc.Row([
                             html.Small([
                                 html.I(className="fas fa-info-circle mr-1",
                                        style={'color': colors['accent1'], 'marginRight': '4px'}),
-                                f"Last updated: {current_time} by {current_user1}"
+                                f"Last updated: 2025-03-12 04:52:00 by wxdove"
                             ], style={'fontSize': '8px', 'color': '#999', 'display': 'block', 'textAlign': 'center',
                                       'marginTop': '10px'})
                         ])
                     ])
-                ], style={'minHeight': '100px'})  # 设置最小高度
-            ], style={'padding': '10px'})  # 增加内边距
+                ], style={'minHeight': '100px'})
+            ], style={'padding': '10px'})
         ], style=dict(card_style, **{'height': 'calc(50%)'}))
     ], width=5)
 ], className="mb-1")
 
 active_view_store = dcc.Store(id='active-view-store', data='dashboard')
+
 active_filter_store = dcc.Store(id='active-filter-store', data='all')
 
 content_area = html.Div([
@@ -1043,11 +1039,11 @@ app.layout = html.Div([
 
 
 def filter_data(coffee_filter):
-    """根据过滤器状态过滤数据"""
+    """Filter data based on the filter status"""
     if coffee_filter == 'all':
         filtered_sales = sales_long
         total_sales = sales_data['Total'].sum()
-        monthly_avg = int(sales_data['Total'].mean())
+        yearly_avg = int(sales_data['Total'].mean())
         total_revenue = sales_data['Revenue'].sum()
         top_coffee = top_product
         pie_data = pd.DataFrame(total_by_coffee)
@@ -1055,7 +1051,7 @@ def filter_data(coffee_filter):
     elif coffee_filter == 'Espresso':
         filtered_sales = sales_long[sales_long['Coffee Type'] == 'Espresso']
         total_sales = sales_data['Espresso'].sum()
-        monthly_avg = int(sales_data['Espresso'].mean())
+        yearly_avg = int(sales_data['Espresso'].mean())
         total_revenue = (sales_data['Espresso'] * sales_data['EspressoPrice']).sum()
         top_coffee = 'Espresso'
         pie_data = pd.DataFrame({'Type': ['Espresso'], 'Sales': [total_sales]})
@@ -1063,7 +1059,7 @@ def filter_data(coffee_filter):
     elif coffee_filter == 'Latte':
         filtered_sales = sales_long[sales_long['Coffee Type'] == 'Latte']
         total_sales = sales_data['Latte'].sum()
-        monthly_avg = int(sales_data['Latte'].mean())
+        yearly_avg = int(sales_data['Latte'].mean())
         total_revenue = (sales_data['Latte'] * sales_data['LattePrice']).sum()
         top_coffee = 'Latte'
         pie_data = pd.DataFrame({'Type': ['Latte'], 'Sales': [total_sales]})
@@ -1071,16 +1067,16 @@ def filter_data(coffee_filter):
     elif coffee_filter == 'Cappuccino':
         filtered_sales = sales_long[sales_long['Coffee Type'] == 'Cappuccino']
         total_sales = sales_data['Cappuccino'].sum()
-        monthly_avg = int(sales_data['Cappuccino'].mean())
+        yearly_avg = int(sales_data['Cappuccino'].mean())
         total_revenue = (sales_data['Cappuccino'] * sales_data['CappuccinoPrice']).sum()
         top_coffee = 'Cappuccino'
         pie_data = pd.DataFrame({'Type': ['Cappuccino'], 'Sales': [total_sales]})
         heatmap_colors = [colors['card_bg'], colors['cappuccino']]
     else:
-        # 默认情况
+        # Default case
         filtered_sales = sales_long
         total_sales = sales_data['Total'].sum()
-        monthly_avg = int(sales_data['Total'].mean())
+        yearly_avg = int(sales_data['Total'].mean())
         total_revenue = sales_data['Revenue'].sum()
         top_coffee = top_product
         pie_data = pd.DataFrame(total_by_coffee)
@@ -1089,17 +1085,16 @@ def filter_data(coffee_filter):
     return {
         'filtered_sales': filtered_sales,
         'total_sales': total_sales,
-        'monthly_avg': monthly_avg,
+        'yearly_avg': yearly_avg,
         'total_revenue': total_revenue,
         'top_coffee': top_coffee,
         'pie_data': pie_data,
         'heatmap_colors': heatmap_colors
     }
 
-
 def create_kpi_cards(filtered_data):
     total_sales = filtered_data['total_sales']
-    monthly_avg = filtered_data['monthly_avg']
+    yearly_avg = filtered_data['yearly_avg']
     total_revenue = filtered_data['total_revenue']
     top_coffee = filtered_data['top_coffee']
 
@@ -1127,7 +1122,7 @@ def create_kpi_cards(filtered_data):
             ], style=card_style)
         ], width=3),
 
-        # Average Monthly Sales
+        # Average Yearly Sales
         dbc.Col([
             dbc.Card([
                 dbc.CardBody([
@@ -1138,10 +1133,10 @@ def create_kpi_cards(filtered_data):
                             'marginRight': '8px'
                         }),
                         html.Div([
-                            html.H6("Monthly Average", style={'fontSize': '10px', 'margin': '0', 'color': '#666'}),
+                            html.H6("Yearly Average", style={'fontSize': '10px', 'margin': '0', 'color': '#666'}),
                             html.H4(
-                                f"{monthly_avg:,}",
-                                id="monthly-avg-value",
+                                f"{yearly_avg:,}",
+                                id="yearly-avg-value",
                                 style={'fontWeight': 'bold', 'color': colors['text'], 'margin': '0', 'fontSize': '16px'}
                             )
                         ])
@@ -1155,7 +1150,7 @@ def create_kpi_cards(filtered_data):
             dbc.Card([
                 dbc.CardBody([
                     html.Div([
-                        html.I(className="fas fa-dollar-sign", style={
+                        html.I(className="fa-solid fa-peso-sign", style={
                             'fontSize': '18px',
                             'color': colors['accent1'],
                             'marginRight': '8px'
@@ -1163,7 +1158,7 @@ def create_kpi_cards(filtered_data):
                         html.Div([
                             html.H6("Total Revenue", style={'fontSize': '10px', 'margin': '0', 'color': '#666'}),
                             html.H4(
-                                f"${total_revenue:,.2f}",
+                                f"₱{total_revenue:,.2f}",
                                 id="revenue-value",
                                 style={'fontWeight': 'bold', 'color': colors['text'], 'margin': '0', 'fontSize': '16px'}
                             )
@@ -1199,20 +1194,21 @@ def create_kpi_cards(filtered_data):
         ], width=3),
     ], className="mb-2")
 
+
 def generate_dashboard_view(coffee_filter):
-    # 获取过滤后的数据
+    # Get filtered data
     filtered_data = filter_data(coffee_filter)
     filtered_sales = filtered_data['filtered_sales']
     pie_data = filtered_data['pie_data']
     heatmap_colors = filtered_data['heatmap_colors']
     total_sales = filtered_data['total_sales']
 
-    # 创建KPI卡片
+    # Create KPI cards
     kpi_cards_updated = create_kpi_cards(filtered_data)
 
-    # 生成图表
+    # Generate charts
     line_fig = px.line(
-        filtered_sales, x='Month', y='Sales', color='Coffee Type',
+        filtered_sales, x='Year', y='Sales', color='Coffee Type',
         color_discrete_map=coffee_colors, markers=True
     ).update_layout(
         plot_bgcolor=colors['card_bg'],
@@ -1220,7 +1216,7 @@ def generate_dashboard_view(coffee_filter):
         font=dict(color=colors['text'], size=9),
         margin=dict(l=5, r=5, t=5, b=5),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=8)),
-        xaxis=dict(tickmode='array', tickvals=months, tickfont=dict(size=8)),
+        xaxis=dict(tickmode='array', tickvals=years, tickfont=dict(size=8)),
         yaxis=dict(tickfont=dict(size=8)),
         height=150,
         hovermode="x unified"
@@ -1238,9 +1234,16 @@ def generate_dashboard_view(coffee_filter):
         paper_bgcolor=colors['card_bg'],
         font=dict(color=colors['text'], size=9),
         margin=dict(l=5, r=5, t=5, b=5),
-        legend=dict(orientation="h", yanchor="bottom", y=-0.1, font=dict(size=8)),
+        legend=dict(
+            orientation="v",
+            yanchor="middle",
+            y=0.5,
+            xanchor="right",
+            x=1.2,
+            font=dict(size=8)
+        ),
         annotations=[dict(text=f"{total_sales:,}", showarrow=False, font=dict(size=14))],
-        height=145
+        height=165  # Increased height to accommodate the legend
     ).update_traces(
         textposition='inside',
         textinfo='percent',
@@ -1248,10 +1251,10 @@ def generate_dashboard_view(coffee_filter):
         hovertemplate='%{label}<br>%{value:,.0f} cups<br>%{percent}'
     )
 
+    # Rest of the code remains the same...
     bar_fig = px.bar(
-        filtered_sales, x='Month', y='Sales', color='Coffee Type',
+        filtered_sales, x='Year', y='Sales', color='Coffee Type',
         barmode='group', color_discrete_map=coffee_colors,
-        category_orders={"Month": months}
     ).update_layout(
         plot_bgcolor=colors['card_bg'],
         paper_bgcolor=colors['card_bg'],
@@ -1290,11 +1293,12 @@ def generate_dashboard_view(coffee_filter):
         yaxis=dict(tickfont=dict(size=7))
     )
 
+    # Update the card containing the pie chart to match the increased height
     dashboard_view_updated = dbc.Row([
         dbc.Col([
             dbc.Card([
                 dbc.CardBody([
-                    html.H6("Annual Coffee Sales Trend",
+                    html.H6("Coffee Sales Trend (2014-2025)",
                             style={'fontSize': '12px', 'margin': '0 0 5px 0', 'fontWeight': 'bold'}),
                     dcc.Graph(
                         id="sales-trend-chart",
@@ -1320,7 +1324,7 @@ def generate_dashboard_view(coffee_filter):
         ], width=7),
 
         dbc.Col([
-            # 环形图 - 更紧凑
+            # Donut chart with updated height
             dbc.Card([
                 dbc.CardBody([
                     html.H6("Share by Coffee Type",
@@ -1329,17 +1333,17 @@ def generate_dashboard_view(coffee_filter):
                         id="share-pie-chart",
                         figure=pie_fig,
                         config={'displayModeBar': False, 'responsive': True},
-                        style={'height': '145px'}
+                        style={'height': '165px'}  # Match the increased height
                     )
                 ], style={'padding': '8px'})
             ], style=card_style),
 
             dbc.Card([
                 dbc.CardBody([
-                    html.H6("Monthly Sales by Coffee Type",
+                    html.H6("Yearly Sales by Coffee Type",
                             style={'fontSize': '12px', 'margin': '0 0 5px 0', 'fontWeight': 'bold'}),
                     dcc.Graph(
-                        id="monthly-bar-chart",
+                        id="yearly-bar-chart",
                         figure=bar_fig,
                         config={'displayModeBar': False, 'responsive': True},
                         style={'height': '130px'}
@@ -1350,6 +1354,7 @@ def generate_dashboard_view(coffee_filter):
     ], className="mb-1")
 
     return [kpi_cards_updated, dashboard_view_updated]
+
 
 def generate_trends_view(coffee_filter):
     filtered_data = filter_data(coffee_filter)
@@ -1362,7 +1367,7 @@ def generate_trends_view(coffee_filter):
         price_data = price_long[price_long['Coffee Type'] == coffee_filter]
 
     price_fig = px.line(
-        price_data, x='Month', y='Price', color='Coffee Type',
+        price_data, x='Year', y='Price', color='Coffee Type',
         color_discrete_map=coffee_colors, markers=True,
     ).update_layout(
         plot_bgcolor=colors['card_bg'],
@@ -1370,39 +1375,39 @@ def generate_trends_view(coffee_filter):
         font=dict(color=colors['text'], size=9),
         margin=dict(l=5, r=5, t=5, b=5),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=8)),
-        xaxis=dict(tickmode='array', tickvals=months, tickfont=dict(size=8)),
-        yaxis=dict(tickfont=dict(size=8), tickprefix='$'),
+        xaxis=dict(tickmode='array', tickvals=years, tickfont=dict(size=8)),
+        yaxis=dict(tickfont=dict(size=8), tickprefix='₱'),
         height=150,
         hovermode="x unified"
     ).update_traces(
         line=dict(width=2),
         marker=dict(size=4),
-        hovertemplate='$%{y:.2f}'
+        hovertemplate='₱%{y:.2f}'
     )
 
-    season_data = pd.DataFrame({
-        'Season': ['Winter', 'Spring', 'Summer', 'Fall']
+    period_data = pd.DataFrame({
+        'Period': ['2014-2016', '2017-2019', '2020-2022', '2023-2025']
     })
 
     if coffee_filter == 'all' or coffee_filter == 'Espresso':
-        season_data['Espresso'] = [1050, 980, 920, 1020]
+        period_data['Espresso'] = [3050, 3280, 3520, 3750]
     if coffee_filter == 'all' or coffee_filter == 'Latte':
-        season_data['Latte'] = [1550, 1480, 1400, 1500]
+        period_data['Latte'] = [4550, 4780, 5100, 5400]
     if coffee_filter == 'all' or coffee_filter == 'Cappuccino':
-        season_data['Cappuccino'] = [1250, 1200, 1150, 1180]
+        period_data['Cappuccino'] = [3650, 3800, 3950, 4180]
 
-    season_long = pd.melt(
-        season_data,
-        id_vars=['Season'],
-        value_vars=[col for col in season_data.columns if col != 'Season'],
+    period_long = pd.melt(
+        period_data,
+        id_vars=['Period'],
+        value_vars=[col for col in period_data.columns if col != 'Period'],
         var_name='Coffee Type',
-        value_name='Consumption'
+        value_name='Sales'
     )
 
-    seasonal_fig = px.bar(
-        season_long,
-        x='Season',
-        y='Consumption',
+    period_fig = px.bar(
+        period_long,
+        x='Period',
+        y='Sales',
         color='Coffee Type',
         barmode='group',
         color_discrete_map=coffee_colors
@@ -1432,13 +1437,13 @@ def generate_trends_view(coffee_filter):
     corr_fig = px.scatter(
         x=corr_x, y=corr_y,
         color_discrete_sequence=[coffee_colors.get(coffee_filter, colors['espresso'])],
-        labels={"x": "Price ($)", "y": "Sales (cups)"}
+        labels={"x": "Price (₱)", "y": "Sales (cups)"}
     ).update_layout(
         plot_bgcolor=colors['card_bg'],
         paper_bgcolor=colors['card_bg'],
         font=dict(color=colors['text'], size=9),
         margin=dict(l=5, r=5, t=5, b=5),
-        xaxis=dict(tickfont=dict(size=8), tickprefix='$'),
+        xaxis=dict(tickfont=dict(size=8), tickprefix='₱'),
         yaxis=dict(tickfont=dict(size=8)),
         height=130,
         showlegend=False
@@ -1448,12 +1453,28 @@ def generate_trends_view(coffee_filter):
         x1=max(corr_x), y1=min(corr_y),
         line=dict(color=coffee_colors.get(coffee_filter, colors['espresso']), width=2)
     ).add_annotation(
-        x=corr_x[3], y=corr_y[3],
+        # Moving the annotation to the top-right corner for better visibility
+        x=corr_x[-2],  # Using second-to-last x value
+        y=corr_y[-2],   # Using second y value (near the top)
         text="Price Elasticity: -1.2",
-        showarrow=False,
-        font=dict(size=9)
+        showarrow=True,
+        arrowhead=2,
+        arrowsize=1,
+        arrowwidth=1,
+        arrowcolor=coffee_colors.get(coffee_filter, colors['espresso']),
+        ax=-40,  # Add a horizontal arrow offset
+        ay=30,   # Add a vertical arrow offset
+        bgcolor=colors['card_bg'],
+        opacity=0.8,
+        bordercolor=coffee_colors.get(coffee_filter, colors['espresso']),
+        borderwidth=1,
+        borderpad=4,
+        font=dict(size=9, color=colors['text']),
+        xanchor="right",  # Anchor the text to its right side
+        yanchor="bottom"  # Anchor the text to its bottom
     )
 
+    # Fix the Customer Demographics pie chart overlapping labels
     demo_fig = px.pie(
         pd.DataFrame({
             'Age Group': ['18-25', '26-35', '36-45', '46-55', '56+'],
@@ -1469,19 +1490,27 @@ def generate_trends_view(coffee_filter):
         paper_bgcolor=colors['card_bg'],
         font=dict(color=colors['text'], size=9),
         margin=dict(l=5, r=5, t=5, b=5),
-        legend=dict(orientation="h", yanchor="bottom", y=-0.1, font=dict(size=8)),
-        height=130
+        # Move the legend to the right side instead of bottom to avoid overlap
+        legend=dict(
+            orientation="v",
+            yanchor="middle",
+            y=0.5,
+            xanchor="right",
+            x=1.2,
+            font=dict(size=8)
+        ),
+        height=150  # Increased height to accommodate the legend
     ).update_traces(
         textposition='inside',
         textinfo='percent',
         hovertemplate='%{label}<br>%{percent}'
     )
-    trends_view_updated = dbc.Row([
 
+    trends_view_updated = dbc.Row([
         dbc.Col([
             dbc.Card([
                 dbc.CardBody([
-                    html.H6("Coffee Price Trends",
+                    html.H6("Coffee Price Trends (2014-2025)",
                             style={'fontSize': '12px', 'margin': '0 0 5px 0', 'fontWeight': 'bold'}),
                     dcc.Graph(
                         id="price-trend-chart",
@@ -1509,11 +1538,11 @@ def generate_trends_view(coffee_filter):
         dbc.Col([
             dbc.Card([
                 dbc.CardBody([
-                    html.H6("Seasonal Consumption Patterns",
+                    html.H6("Sales Trend by Period",
                             style={'fontSize': '12px', 'margin': '0 0 5px 0', 'fontWeight': 'bold'}),
                     dcc.Graph(
-                        id="seasonal-chart",
-                        figure=seasonal_fig,
+                        id="period-chart",
+                        figure=period_fig,
                         config={'displayModeBar': False, 'responsive': True},
                         style={'height': '150px'}
                     )
@@ -1528,7 +1557,7 @@ def generate_trends_view(coffee_filter):
                         id="demographic-chart",
                         figure=demo_fig,
                         config={'displayModeBar': False, 'responsive': True},
-                        style={'height': '130px'}
+                        style={'height': '150px'}  # Updated to match the new chart height
                     )
                 ], style={'padding': '8px'})
             ], style=card_style)
@@ -1538,23 +1567,21 @@ def generate_trends_view(coffee_filter):
     return [kpi_cards_updated, trends_view_updated]
 
 def generate_predictions_view(coffee_filter):
-
     filtered_data = filter_data(coffee_filter)
-
     kpi_cards_updated = create_kpi_cards(filtered_data)
 
     prediction_fig = go.Figure()
 
     if coffee_filter == 'all' or coffee_filter == 'Espresso':
         prediction_fig.add_trace(go.Scatter(
-            x=prediction_months[:12],
+            x=prediction_years[:12],
             y=espresso_predictions[:12],
             mode='lines+markers',
             name='Espresso',
             line=dict(color=colors['espresso'], width=2)
         ))
         prediction_fig.add_trace(go.Scatter(
-            x=prediction_months[11:],
+            x=prediction_years[11:],
             y=espresso_predictions[11:],
             mode='lines+markers',
             name='Espresso Forecast',
@@ -1563,14 +1590,14 @@ def generate_predictions_view(coffee_filter):
 
     if coffee_filter == 'all' or coffee_filter == 'Latte':
         prediction_fig.add_trace(go.Scatter(
-            x=prediction_months[:12],
+            x=prediction_years[:12],
             y=latte_predictions[:12],
             mode='lines+markers',
             name='Latte',
             line=dict(color=colors['latte'], width=2)
         ))
         prediction_fig.add_trace(go.Scatter(
-            x=prediction_months[11:],
+            x=prediction_years[11:],
             y=latte_predictions[11:],
             mode='lines+markers',
             name='Latte Forecast',
@@ -1579,7 +1606,7 @@ def generate_predictions_view(coffee_filter):
 
     if coffee_filter == 'all' or coffee_filter == 'Cappuccino':
         prediction_fig.add_trace(go.Scatter(
-            x=prediction_months[:12],
+            x=prediction_years[:12],
             y=cappuccino_predictions[:12],
             mode='lines+markers',
             name='Cappuccino',
@@ -1587,7 +1614,7 @@ def generate_predictions_view(coffee_filter):
         ))
 
         prediction_fig.add_trace(go.Scatter(
-            x=prediction_months[11:],
+            x=prediction_years[11:],
             y=cappuccino_predictions[11:],
             mode='lines+markers',
             name='Cappuccino Forecast',
@@ -1606,9 +1633,9 @@ def generate_predictions_view(coffee_filter):
         hovermode="x unified",
         shapes=[{
             'type': 'line',
-            'x0': months[-1],
+            'x0': years[-1],
             'y0': 0,
-            'x1': months[-1],
+            'x1': years[-1],
             'y1': 2000,
             'line': {
                 'color': 'gray',
@@ -1617,7 +1644,7 @@ def generate_predictions_view(coffee_filter):
             }
         }],
         annotations=[{
-            'x': months[-1],
+            'x': years[-1],
             'y': 2000,
             'text': 'Forecast Starts',
             'showarrow': False,
@@ -1627,21 +1654,21 @@ def generate_predictions_view(coffee_filter):
         }]
     )
 
-    current_annual = 147862
-    forecasted_annual = 156435
+    current_annual = 147862000
+    forecasted_annual = 156435000
     growth_rate = 5.8
 
     if coffee_filter == 'Espresso':
-        current_annual = 42000
-        forecasted_annual = 45360
+        current_annual = 42000000
+        forecasted_annual = 45360000
         growth_rate = 8.0
     elif coffee_filter == 'Latte':
-        current_annual = 65862
-        forecasted_annual = 68825
+        current_annual = 65862000
+        forecasted_annual = 68825000
         growth_rate = 4.5
     elif coffee_filter == 'Cappuccino':
-        current_annual = 40000
-        forecasted_annual = 42250
+        current_annual = 40000000
+        forecasted_annual = 42250000
         growth_rate = 5.6
 
     recommendations = []
@@ -1649,46 +1676,46 @@ def generate_predictions_view(coffee_filter):
     if coffee_filter == 'all':
         recommendations = [
             {"icon": "fas fa-lightbulb", "color": colors['warning'],
-             "text": "Increase Latte marketing in summer to boost sales"},
+             "text": "Focus on high-margin cold brew options for 2026"},
             {"icon": "fas fa-chart-line", "color": colors['info'],
-             "text": "Espresso shows strongest growth potential"},
+             "text": "Espresso products show strongest growth trend since 2020"},
             {"icon": "fas fa-tag", "color": colors['success'],
-             "text": "Consider 5% price increase for Cappuccino"},
+             "text": "Consider 5% annual price increase across premium offerings"},
             {"icon": "fas fa-clock", "color": colors['accent2'],
-             "text": "Extend morning hours to capture peak demand"}
+             "text": "Long-term analysis suggests expanding store footprint"}
         ]
     elif coffee_filter == 'Espresso':
         recommendations = [
             {"icon": "fas fa-lightbulb", "color": colors['warning'],
-             "text": "Introduce seasonal espresso variations"},
+             "text": "Introduce seasonal espresso variations with premium beans"},
             {"icon": "fas fa-chart-line", "color": colors['info'],
-             "text": "7-8% growth potential with targeted marketing"},
+             "text": "7-8% annual growth potential with targeted marketing"},
             {"icon": "fas fa-tag", "color": colors['success'],
-             "text": "Price increase of 7% possible without affecting demand"},
+             "text": "Historical data supports 7% price increase without affecting volume"},
             {"icon": "fas fa-clock", "color": colors['accent2'],
-             "text": "Peak demand from 7-9AM and 2-3PM"}
+             "text": "Strongest annual growth observed in 2022-2024 period"}
         ]
     elif coffee_filter == 'Latte':
         recommendations = [
             {"icon": "fas fa-lightbulb", "color": colors['warning'],
-             "text": "Promote seasonal flavored lattes"},
+             "text": "Develop signature latte lineup for 2026-2028 seasons"},
             {"icon": "fas fa-chart-line", "color": colors['info'],
-             "text": "Social media campaigns show 12% engagement"},
+             "text": "Year-over-year growth stabilizing at 4.5% since 2022"},
             {"icon": "fas fa-tag", "color": colors['success'],
-             "text": "Current price point optimal for volume"},
+             "text": "Premium milk alternatives show higher profit margin potential"},
             {"icon": "fas fa-clock", "color": colors['accent2'],
-             "text": "Afternoon sales potential with promotions"}
+             "text": "Annual sales pattern follows consistent upward trajectory"}
         ]
     elif coffee_filter == 'Cappuccino':
         recommendations = [
             {"icon": "fas fa-lightbulb", "color": colors['warning'],
-             "text": "Introduce art cappuccino to premium segment"},
+             "text": "Introduce signature art cappuccino to premium segment"},
             {"icon": "fas fa-chart-line", "color": colors['info'],
-             "text": "Growing at 5.6%, can reach 7% with campaigns"},
+             "text": "Growing steadily at 5.6% annually since 2018"},
             {"icon": "fas fa-tag", "color": colors['success'],
-             "text": "Price elasticity allows for 5-7% increase"},
+             "text": "Historical price elasticity allows for 5-7% annual increases"},
             {"icon": "fas fa-clock", "color": colors['accent2'],
-             "text": "Weekend sales highest between 9-11AM"}
+             "text": "Year-to-year consistency provides stable revenue foundation"}
         ]
 
     price_data = []
@@ -1697,9 +1724,9 @@ def generate_predictions_view(coffee_filter):
         price_data.append({
             "product": "Espresso",
             "color": colors['espresso'],
-            "current": "$3.50",
-            "optimal": "$3.75",
-            "change": "+4.2%",
+            "current": "₱3.75",
+            "optimal": "₱4.25",
+            "change": "+14.2%",
             "highlight": True
         })
 
@@ -1707,19 +1734,19 @@ def generate_predictions_view(coffee_filter):
         price_data.append({
             "product": "Latte",
             "color": colors['latte'],
-            "current": "$4.50",
-            "optimal": "$4.50",
-            "change": "0%",
-            "highlight": False
+            "current": "₱4.80",
+            "optimal": "₱5.50",
+            "change": "+18.5%",
+            "highlight": True
         })
 
     if coffee_filter == 'all' or coffee_filter == 'Cappuccino':
         price_data.append({
             "product": "Cappuccino",
             "color": colors['cappuccino'],
-            "current": "$4.20",
-            "optimal": "$4.40",
-            "change": "+3.5%",
+            "current": "₱4.50",
+            "optimal": "₱5.10",
+            "change": "+16.8%",
             "highlight": True
         })
 
@@ -1727,7 +1754,7 @@ def generate_predictions_view(coffee_filter):
         dbc.Col([
             dbc.Card([
                 dbc.CardBody([
-                    html.H6("Sales Forecast (Next 4 Months)",
+                    html.H6("Sales Forecast (2026-2029)",
                             style={'fontSize': '12px', 'margin': '0 0 5px 0', 'fontWeight': 'bold'}),
                     dcc.Graph(
                         id="predictions-chart",
@@ -1739,24 +1766,24 @@ def generate_predictions_view(coffee_filter):
             ], style=card_style),
             dbc.Card([
                 dbc.CardBody([
-                    html.H6("Forecasted Revenue Growth",
+                    html.H6("Long-term Revenue Growth",
                             style={'fontSize': '12px', 'margin': '0 0 5px 0', 'fontWeight': 'bold'}),
                     html.Div([
                         dbc.Row([
                             dbc.Col([
                                 html.Div([
-                                    html.H5(f"${current_annual:,}",
+                                    html.H5(f"₱{current_annual:,}",
                                             style={'fontSize': '14px', 'fontWeight': 'bold', 'margin': '0',
                                                    'color': colors['text']}),
-                                    html.P("Current Annual", style={'fontSize': '9px', 'margin': '0', 'color': '#777'})
+                                    html.P("Current Total (2014-2025)", style={'fontSize': '9px', 'margin': '0', 'color': '#777'})
                                 ], style={'textAlign': 'center'})
                             ], width=4),
                             dbc.Col([
                                 html.Div([
-                                    html.H5(f"${forecasted_annual:,}",
+                                    html.H5(f"₱{forecasted_annual:,}",
                                             style={'fontSize': '14px', 'fontWeight': 'bold', 'margin': '0',
                                                    'color': colors['success']}),
-                                    html.P("Forecasted Annual",
+                                    html.P("Forecasted Total (2026-2029)",
                                            style={'fontSize': '9px', 'margin': '0', 'color': '#777'})
                                 ], style={'textAlign': 'center'})
                             ], width=4),
@@ -1808,7 +1835,7 @@ def generate_predictions_view(coffee_filter):
         dbc.Col([
             dbc.Card([
                 dbc.CardBody([
-                    html.H6("Recommendations",
+                    html.H6("Long-term Strategy",
                             style={'fontSize': '12px', 'margin': '0 0 8px 0', 'fontWeight': 'bold'}),
                     html.Div([
                         *[html.Div([
@@ -1830,11 +1857,10 @@ def generate_predictions_view(coffee_filter):
                 ], style={'padding': '10px'})
             ], style=card_style),
 
-            # 价格优化
+            # Price optimization
             dbc.Card([
                 dbc.CardBody([
-                    html.H6("Price Optimization",
-                            style={'fontSize': '12px', 'margin': '0 0 8px 0', 'fontWeight': 'bold'}),
+                    html.H6("Long-term Price Optimization", style={'fontSize': '12px', 'margin': '0 0 8px 0', 'fontWeight': 'bold'}),
                     html.Div([
                         html.Table([
                             html.Thead([
@@ -1842,10 +1868,10 @@ def generate_predictions_view(coffee_filter):
                                     html.Th("Product",
                                             style={'fontSize': '10px', 'textAlign': 'left', 'paddingRight': '8px',
                                                    'paddingBottom': '6px'}),
-                                    html.Th("Current",
+                                    html.Th("2025 Price",
                                             style={'fontSize': '10px', 'textAlign': 'right', 'paddingRight': '8px',
                                                    'paddingBottom': '6px'}),
-                                    html.Th("Optimal",
+                                    html.Th("2030 Target",
                                             style={'fontSize': '10px', 'textAlign': 'right', 'paddingRight': '8px',
                                                    'paddingBottom': '6px'}),
                                     html.Th("∆ Revenue",
@@ -1874,30 +1900,30 @@ def generate_predictions_view(coffee_filter):
                             ])
                         ], style={'width': '100%'}),
 
+                        # Add more space and extra content
                         html.Div([
                             html.Hr(style={'margin': '15px 0 10px 0', 'opacity': '0.3'}),
                             html.Div([
-                                html.Small(
-                                    f"Suggested price changes for Q2 2025 - {coffee_filter if coffee_filter != 'all' else 'All Products'}",
-                                    style={'fontSize': '9px', 'fontStyle': 'italic', 'color': '#777',
-                                           'marginBottom': '5px'}),
+                                html.Small("Suggested price changes for 2026-2030 period",
+                                           style={'fontSize': '9px', 'fontStyle': 'italic', 'color': '#777',
+                                                  'marginBottom': '5px'}),
                             ], style={'textAlign': 'center'}),
                             html.Div([
                                 html.Small([
                                     html.I(className="fas fa-info-circle mr-1",
                                            style={'color': colors['accent1'], 'marginRight': '4px'}),
+                                    f"Last updated: 2025-03-12 04:59:29 by wxdove"
                                 ], style={'fontSize': '8px', 'color': '#999', 'display': 'block', 'textAlign': 'center',
                                           'marginTop': '10px'})
                             ])
                         ])
                     ], style={'minHeight': '100px'})
                 ], style={'padding': '10px'})
-            ], style=dict(card_style, **{'height': 'calc(50% - 5px)'}))
+            ], style=dict(card_style, **{'height': 'calc(50%)'}))
         ], width=5)
     ], className="mb-1")
 
     return [kpi_cards_updated, predictions_view_updated]
-
 
 app.index_string = '''
 <!DOCTYPE html>
